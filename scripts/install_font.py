@@ -9,7 +9,7 @@ import subprocess
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-FONT_NAME = "SunGallant-Regular.ttf"
+FONT_NAMES = ("SunGallant-Regular.ttf", "SunGallantClassic-Regular.ttf")
 
 
 def font_directory() -> Path:
@@ -37,23 +37,32 @@ def main() -> None:
     parser.add_argument("--remove", action="store_true", help="uninstall instead of install")
     args = parser.parse_args()
 
-    destination = font_directory() / FONT_NAME
     if args.remove:
-        if destination.exists():
-            destination.unlink()
+        removed = False
+        for font_name in FONT_NAMES:
+            destination = font_directory() / font_name
+            if destination.exists():
+                destination.unlink()
+                removed = True
+                print(f"Removed {destination}")
+            else:
+                print(f"Not installed: {destination}")
+        if removed:
             refresh_cache()
-            print(f"Removed {destination}")
-        else:
-            print(f"Not installed: {destination}")
         return
 
-    source = ROOT / "dist" / FONT_NAME
-    if not source.exists():
-        raise SystemExit(f"{source} does not exist; run make build first")
-    destination.parent.mkdir(parents=True, exist_ok=True)
-    shutil.copy2(source, destination)
+    sources = [ROOT / "dist" / font_name for font_name in FONT_NAMES]
+    missing = [source for source in sources if not source.exists()]
+    if missing:
+        raise SystemExit(f"{missing[0]} does not exist; run make build first")
+
+    destination_directory = font_directory()
+    destination_directory.mkdir(parents=True, exist_ok=True)
+    for source in sources:
+        destination = destination_directory / source.name
+        shutil.copy2(source, destination)
+        print(f"Installed {destination}")
     refresh_cache()
-    print(f"Installed {destination}")
 
 
 if __name__ == "__main__":

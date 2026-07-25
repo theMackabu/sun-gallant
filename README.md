@@ -4,6 +4,8 @@ An independent, open-source outline revival of the 12×22 console font seen on S
 
 Unlike bitmap-strike TTF conversions, Sun Gallant generates ordinary TrueType outlines. The resulting TTF installs like a modern desktop font and the WOFF2 works as a webfont.
 
+The distribution includes two families: **Sun Gallant**, with a restrained optical pass for modern readability, and **Sun Gallant Classic**, which preserves the vendored Gallant bitmap exactly for its original character set.
+
 This project is not affiliated with or endorsed by Sun Microsystems or Oracle.
 
 ## Build
@@ -19,6 +21,8 @@ Outputs:
 ```text
 dist/SunGallant-Regular.ttf
 dist/SunGallant-Regular.woff2
+dist/SunGallantClassic-Regular.ttf
+dist/SunGallantClassic-Regular.woff2
 ```
 
 Run the complete validation suite with:
@@ -56,13 +60,20 @@ Applications that were already running may need to be restarted before the font 
   font-style: normal;
   font-weight: 400;
 }
+
+@font-face {
+  font-family: 'Sun Gallant Classic';
+  src: url('SunGallantClassic-Regular.woff2') format('woff2');
+  font-style: normal;
+  font-weight: 400;
+}
 ```
 
 The original design is a 12×22 grid. It is pixel-perfect at a CSS font size of 22px and integer multiples such as 44px.
 
 ## How it works
 
-The canonical editable source is `sources/glyphs.txt`. Each glyph is a 12×22 ASCII grid, where `#` is filled and `.` is empty.
+The canonical editable revival source is `sources/glyphs.txt`. Each glyph is a 12×22 ASCII grid, where `#` is filled and `.` is empty. The Classic build replaces the original Gallant character range with the bitmaps reconstructed directly from the pinned NetBSD source; characters added by this project are shared by both families.
 
 The builder:
 

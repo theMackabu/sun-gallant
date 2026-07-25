@@ -45,6 +45,13 @@ class FontTests(unittest.TestCase):
         self.assertEqual({advance for advance, _ in font["hmtx"].metrics.values()}, {768})
         self.assertEqual(font["post"].isFixedPitch, 1)
 
+    def test_version_metadata(self) -> None:
+        font = TTFont(TTF)
+        version = font["name"].getName(5, 3, 1)
+        self.assertIsNotNone(version)
+        self.assertEqual(version.toUnicode(), "Version 0.1.1")
+        self.assertAlmostEqual(font["head"].fontRevision, 0.101, places=3)
+
     def test_character_coverage(self) -> None:
         font = TTFont(TTF)
         cmap = font.getBestCmap()
@@ -106,6 +113,27 @@ class FontTests(unittest.TestCase):
         self.assertEqual(lowercase_l[2], "...####.....")
         self.assertEqual(lowercase_i[16], "..########..")
         self.assertEqual(lowercase_l[16], "..########..")
+
+    def test_optical_capital_serifs_do_not_touch_adjacent_capitals(self) -> None:
+        capitals = {
+            chr(codepoint): source_rows(f"{codepoint:04X}")
+            for codepoint in range(ord("A"), ord("Z") + 1)
+        }
+        for left_name, left_rows in capitals.items():
+            for right_name, right_rows in capitals.items():
+                touching_rows = [
+                    row
+                    for row in range(22)
+                    if left_rows[row][-1] == "#" and right_rows[row][0] == "#"
+                ]
+                with self.subTest(pair=left_name + right_name):
+                    self.assertEqual(touching_rows, [])
+
+    def test_structural_capital_edges_are_preserved(self) -> None:
+        capital_g = source_rows("0047")
+        capital_q = source_rows("0051")
+        self.assertEqual(capital_g[11], ".##....#####")
+        self.assertEqual(capital_q[18], "..#...###..#")
 
     def test_woff2_decodes_as_the_same_font(self) -> None:
         ttf = TTFont(TTF)
