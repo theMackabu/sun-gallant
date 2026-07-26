@@ -9,7 +9,7 @@ import subprocess
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-FONT_NAME = "SunGallant-Regular.ttf"
+FONT_NAMES = ("SunGallant-Regular.ttf", "sunGallantVector.ttf")
 
 
 def font_directory() -> Path:
@@ -21,7 +21,7 @@ def font_directory() -> Path:
     if system == "Darwin":
         return Path.home() / "Library" / "Fonts"
     if system == "Windows":
-        raise SystemExit("on Windows, install dist/SunGallant-Regular.ttf from Explorer")
+        raise SystemExit("on Windows, install the TTF files in dist/ from Explorer")
 
     data_home = os.environ.get("XDG_DATA_HOME")
     return Path(data_home) / "fonts" if data_home else Path.home() / ".local" / "share" / "fonts"
@@ -37,23 +37,29 @@ def main() -> None:
     parser.add_argument("--remove", action="store_true", help="uninstall instead of install")
     args = parser.parse_args()
 
-    destination = font_directory() / FONT_NAME
+    destinations = [font_directory() / name for name in FONT_NAMES]
     if args.remove:
-        if destination.exists():
-            destination.unlink()
+        removed = []
+        for destination in destinations:
+            if destination.exists():
+                destination.unlink()
+                removed.append(destination)
+                print(f"Removed {destination}")
+            else:
+                print(f"Not installed: {destination}")
+        if removed:
             refresh_cache()
-            print(f"Removed {destination}")
-        else:
-            print(f"Not installed: {destination}")
         return
 
-    source = ROOT / "dist" / FONT_NAME
-    if not source.exists():
-        raise SystemExit(f"{source} does not exist; run make build first")
-    destination.parent.mkdir(parents=True, exist_ok=True)
-    shutil.copy2(source, destination)
+    sources = [ROOT / "dist" / name for name in FONT_NAMES]
+    missing = [source for source in sources if not source.exists()]
+    if missing:
+        raise SystemExit(f"{missing[0]} does not exist; run make build first")
+    destinations[0].parent.mkdir(parents=True, exist_ok=True)
+    for source, destination in zip(sources, destinations, strict=True):
+        shutil.copy2(source, destination)
+        print(f"Installed {destination}")
     refresh_cache()
-    print(f"Installed {destination}")
 
 
 if __name__ == "__main__":

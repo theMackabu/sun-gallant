@@ -1,23 +1,29 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
+import json
 import re
 from collections import defaultdict
 from pathlib import Path
 
 from fontTools.agl import UV2AGL
 from fontTools.fontBuilder import FontBuilder
+from fontTools.pens.cu2quPen import Cu2QuPen
+from fontTools.pens.transformPen import TransformPen
 from fontTools.pens.ttGlyphPen import TTGlyphPen
+from fontTools.svgLib.path import parse_path
 from fontTools.ttLib import TTFont
 
 ROOT = Path(__file__).resolve().parent.parent
 SOURCE = ROOT / "sources" / "glyphs.txt"
+VECTOR_SOURCE = ROOT / "sources" / "vector_paths.json"
 DIST = ROOT / "dist"
 
 FAMILY = "Sun Gallant"
+VECTOR_FAMILY = "Sun Gallant Vector"
 STYLE = "Regular"
-VERSION = "0.1.2"
-FONT_REVISION = 0.102
+VERSION = "0.1.3"
+FONT_REVISION = 0.103
 
 WIDTH = 12
 HEIGHT = 22
@@ -175,6 +181,38 @@ def make_glyph(rows: tuple[str, ...]):
     return pen.glyph()
 
 
+def parse_vector_source(path: Path) -> dict[int, str]:
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    if payload.get("format") != 1:
+        raise ValueError(f"{path}: unsupported vector source format")
+    paths = {
+        int(codepoint, 16): outline
+        for codepoint, outline in payload.get("paths", {}).items()
+    }
+    if paths.keys() != EXPECTED_CODEPOINTS:
+        missing = sorted(EXPECTED_CODEPOINTS - paths.keys())
+        extra = sorted(paths.keys() - EXPECTED_CODEPOINTS)
+        raise ValueError(f"unexpected vector coverage; missing={missing}, extra={extra}")
+    if any(not isinstance(outline, str) for outline in paths.values()):
+        raise ValueError(f"{path}: every vector outline must be an SVG path string")
+    return paths
+
+
+def make_vector_glyph(path: str):
+    quadratic_pen = TTGlyphPen(None)
+    curve_pen = Cu2QuPen(quadratic_pen, max_err=1, reverse_direction=False)
+    pen = TransformPen(
+        curve_pen,
+        (1, 0, 0, 1, 0, -DESCENT * UNITS_PER_PIXEL),
+    )
+    parse_path(path, pen)
+    return quadratic_pen.glyph()
+
+
+def glyph_left_side_bearing(glyph) -> int:
+    return min((point[0] for point in glyph.coordinates), default=0)
+
+
 def glyph_name(codepoint: int) -> str:
     if codepoint == 0:
         return ".notdef"
@@ -188,7 +226,7 @@ def left_side_bearing(rows: tuple[str, ...]) -> int:
     return min(filled_columns, default=0) * UNITS_PER_PIXEL
 
 
-def build() -> tuple[Path, Path]:
+def build_regular() -> tuple[Path, Path]:
     source = parse_source(SOURCE)
     codepoints = list(source)
     glyph_order = [glyph_name(codepoint) for codepoint in codepoints]
@@ -258,6 +296,92 @@ def build() -> tuple[Path, Path]:
     web_font.flavor = "woff2"
     web_font.save(woff2_path, reorderTables=False)
     return ttf_path, woff2_path
+
+
+def build_vector() -> tuple[Path, Path]:
+    source = parse_source(SOURCE)
+    vector_source = parse_vector_source(VECTOR_SOURCE)
+    codepoints = list(source)
+    glyph_order = [glyph_name(codepoint) for codepoint in codepoints]
+    glyphs = {
+        glyph_name(codepoint): make_vector_glyph(vector_source[codepoint])
+        for codepoint in codepoints
+    }
+    metrics = {
+        glyph_name(codepoint): (
+            ADVANCE_WIDTH,
+            glyph_left_side_bearing(glyphs[glyph_name(codepoint)]),
+        )
+        for codepoint in codepoints
+    }
+    cmap = {codepoint: glyph_name(codepoint) for codepoint in codepoints if codepoint != 0}
+
+    font_builder = FontBuilder(UNITS_PER_EM, isTTF=True)
+    font_builder.setupGlyphOrder(glyph_order)
+    font_builder.setupCharacterMap(cmap)
+    font_builder.setupGlyf(glyphs)
+    font_builder.setupHorizontalMetrics(metrics)
+    font_builder.setupHorizontalHeader(
+        ascent=ASCENT * UNITS_PER_PIXEL,
+        descent=-DESCENT * UNITS_PER_PIXEL,
+        lineGap=0,
+    )
+    font_builder.setupNameTable(
+        {
+            "familyName": VECTOR_FAMILY,
+            "styleName": STYLE,
+            "uniqueFontIdentifier": f"{VECTOR_FAMILY} {VERSION}",
+            "fullName": f"{VECTOR_FAMILY} {STYLE}",
+            "psName": "SunGallantVector-Regular",
+            "version": f"Version {VERSION}",
+            "copyright": (
+                "Copyright 2026 theMackabu, sf.tools; "
+                "Glyph data copyright 1992, 1993 The Regents of the University of California."
+            ),
+            "licenseDescription": "BSD 3-Clause License",
+            "licenseInfoURL": "https://opensource.org/license/bsd-3-clause",
+            "description": (
+                "A geometric vector redraw of Sun Gallant for contemporary "
+                "monospace text."
+            ),
+        }
+    )
+    font_builder.setupOS2(
+        sTypoAscender=ASCENT * UNITS_PER_PIXEL,
+        sTypoDescender=-DESCENT * UNITS_PER_PIXEL,
+        sTypoLineGap=0,
+        usWinAscent=ASCENT * UNITS_PER_PIXEL,
+        usWinDescent=DESCENT * UNITS_PER_PIXEL,
+        usWeightClass=400,
+        usWidthClass=5,
+        fsSelection=0x40,
+        achVendID="SGAL",
+        sxHeight=9 * UNITS_PER_PIXEL,
+        sCapHeight=13 * UNITS_PER_PIXEL,
+    )
+    font_builder.setupPost(keepGlyphNames=True, isFixedPitch=1)
+    font_builder.setupMaxp()
+
+    font = font_builder.font
+    font["head"].created = MAC_EPOCH_AT_UNIX_EPOCH
+    font["head"].modified = MAC_EPOCH_AT_UNIX_EPOCH
+    font["head"].fontRevision = FONT_REVISION
+    font["head"].lowestRecPPEM = 8
+    font["OS/2"].fsType = 0
+
+    DIST.mkdir(exist_ok=True)
+    ttf_path = DIST / "sunGallantVector.ttf"
+    woff2_path = DIST / "sunGallantVector.woff2"
+    font.save(ttf_path, reorderTables=False)
+
+    web_font = TTFont(ttf_path, recalcTimestamp=False)
+    web_font.flavor = "woff2"
+    web_font.save(woff2_path, reorderTables=False)
+    return ttf_path, woff2_path
+
+
+def build() -> tuple[Path, ...]:
+    return (*build_regular(), *build_vector())
 
 
 if __name__ == "__main__":

@@ -1,8 +1,11 @@
 # Sun Gallant
 
-An independent, open-source outline revival of the 12×22 console font seen on Sun workstations.
+Independent, open-source outline revivals of the 12×22 console font seen on Sun workstations.
 
-Unlike bitmap-strike TTF conversions, Sun Gallant generates ordinary TrueType outlines. The resulting TTF installs like a modern desktop font and the WOFF2 works as a webfont.
+- **Sun Gallant Regular** preserves the original 12×22 design exactly.
+- **Sun Gallant Vector** is a from-scratch geometric redraw for contemporary terminal and editor sizes. It uses smooth curves, consistent strokes, flat terminals, and conventional serif-mono forms.
+
+Both are ordinary outline-only TrueType fonts. There are no embedded bitmap strikes.
 
 This project is not affiliated with or endorsed by Sun Microsystems or Oracle.
 
@@ -19,6 +22,8 @@ Outputs:
 ```text
 dist/SunGallant-Regular.ttf
 dist/SunGallant-Regular.woff2
+dist/sunGallantVector.ttf
+dist/sunGallantVector.woff2
 ```
 
 Run the complete validation suite with:
@@ -43,7 +48,7 @@ Remove it again with:
 make uninstall
 ```
 
-On Windows, build the font and install `dist/SunGallant-Regular.ttf` from Explorer.
+On Windows, build the fonts and install both TTF files in `dist/` from Explorer.
 
 Applications that were already running may need to be restarted before the font appears.
 
@@ -56,13 +61,20 @@ Applications that were already running may need to be restarted before the font 
   font-style: normal;
   font-weight: 400;
 }
+
+@font-face {
+  font-family: 'Sun Gallant Vector';
+  src: url('sunGallantVector.woff2') format('woff2');
+  font-style: normal;
+  font-weight: 400;
+}
 ```
 
-The original design is a 12×22 grid. It is pixel-perfect at a CSS font size of 22px and integer multiples such as 44px.
+The original face is pixel-perfect at a CSS font size of 22px and integer multiples such as 44px. The Vector face is resolution-independent and intended to scale cleanly at arbitrary sizes.
 
 ## How it works
 
-The canonical editable source is `sources/glyphs.txt`. Each glyph is a 12×22
+The canonical original source is `sources/glyphs.txt`. Each glyph is a 12×22
 ASCII grid, where `#` is filled and `.` is empty. The original Gallant
 character range matches the pinned NetBSD bitmap exactly; characters added by
 this project follow the same grid.
@@ -70,14 +82,23 @@ this project follow the same grid.
 The builder:
 
 1. validates every glyph and the declared character coverage;
-2. finds the exterior boundary of connected pixels;
-3. merges collinear edges into compact clockwise TrueType contours;
-4. preserves each glyph's left side bearing together with the original 17-pixel ascent, 5-pixel descent, and 12-pixel monospace advance;
-5. writes an outline-only TTF and derives WOFF2 from it.
+2. builds the original face from compact pixel-boundary contours;
+3. builds the geometric face from the pinned SVG paths in `sources/vector_paths.json`;
+4. converts cubic construction curves to native TrueType quadratic curves;
+5. preserves each face's real left side bearings together with the original 17-pixel ascent, 5-pixel descent, and 12-pixel monospace advance;
+6. writes outline-only TTF files and derives WOFF2 from them.
+
+The editable geometric construction lives in `scripts/trace_vector_source.py`. Regenerating the pinned path source is optional and requires ImageMagick and Potrace 1.16:
+
+```sh
+python3 scripts/trace_vector_source.py
+```
+
+Normal builds do not require either tool.
 
 ## Coverage
 
-Version 0.1 contains Basic Latin, Latin-1, complete decimal superscript and subscript sets, the Unicode fraction slash, and every precomposed vulgar fraction: 226 encoded glyphs plus `.notdef`.
+Both faces contain Basic Latin, Latin-1, complete decimal superscript and subscript sets, the Unicode fraction slash, and every precomposed vulgar fraction: 226 encoded glyphs plus `.notdef`.
 
 ## License and provenance
 
