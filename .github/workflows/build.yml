@@ -9,7 +9,7 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: Existing release tag to build, such as v0.1.1
+        description: Existing release tag to build
         required: true
         type: string
 
@@ -50,10 +50,11 @@ jobs:
         with:
           name: sun-gallant
           path: release
-      - run: >-
-          gh release upload "$RELEASE_TAG" release/*
-          --clobber
-          --repo "$GITHUB_REPOSITORY"
+      - run: |
+          mapfile -d '' assets < <(find release -type f -print0 | sort -z)
+          gh release upload "$RELEASE_TAG" "${assets[@]}" \
+            --clobber \
+            --repo "$GITHUB_REPOSITORY"
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ github.event.release.tag_name || inputs.tag }}
