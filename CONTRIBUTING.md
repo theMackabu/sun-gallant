@@ -3,9 +3,9 @@
 Glyph work happens in `sources/glyphs.txt`. Keep every glyph at exactly 12
 columns by 22 rows and use only `#` and `.`.
 
-This file controls the optically revived family. The Classic family restores
-the original Gallant character range from `sources/netbsd-gallant12x22.h`
-during each build, so do not hand-edit a second copy of those glyphs.
+The original Gallant character range must continue to match
+`sources/netbsd-gallant12x22.h` exactly. Characters added by this project live
+in the same editable source.
 
 Before opening a change:
 

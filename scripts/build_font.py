@@ -10,18 +10,14 @@ from fontTools.fontBuilder import FontBuilder
 from fontTools.pens.ttGlyphPen import TTGlyphPen
 from fontTools.ttLib import TTFont
 
-from import_netbsd import parse_header
-
 ROOT = Path(__file__).resolve().parent.parent
 SOURCE = ROOT / "sources" / "glyphs.txt"
-VENDORED_SOURCE = ROOT / "sources" / "netbsd-gallant12x22.h"
 DIST = ROOT / "dist"
 
 FAMILY = "Sun Gallant"
-CLASSIC_FAMILY = "Sun Gallant Classic"
 STYLE = "Regular"
-VERSION = "0.1.1"
-FONT_REVISION = 0.101
+VERSION = "0.1.2"
+FONT_REVISION = 0.102
 
 WIDTH = 12
 HEIGHT = 22
@@ -185,32 +181,22 @@ def glyph_name(codepoint: int) -> str:
     return UV2AGL.get(codepoint, f"uni{codepoint:04X}")
 
 
-def classic_source(source: dict[int, tuple[str, ...]]) -> dict[int, tuple[str, ...]]:
-    classic = dict(source)
-    vendored = parse_header(VENDORED_SOURCE)
-    for codepoint in VENDORED_CODEPOINTS:
-        classic[codepoint] = tuple(
-            "".join(
-                "#" if (packed_row >> 4) & (1 << (WIDTH - column - 1)) else "."
-                for column in range(WIDTH)
-            )
-            for packed_row in vendored[codepoint]
-        )
-    return classic
+def left_side_bearing(rows: tuple[str, ...]) -> int:
+    filled_columns = [
+        column for row in rows for column, pixel in enumerate(row) if pixel == "#"
+    ]
+    return min(filled_columns, default=0) * UNITS_PER_PIXEL
 
 
-def build_variant(
-    source: dict[int, tuple[str, ...]],
-    *,
-    family: str,
-    ps_name: str,
-    filename: str,
-    description: str,
-) -> tuple[Path, Path]:
+def build() -> tuple[Path, Path]:
+    source = parse_source(SOURCE)
     codepoints = list(source)
     glyph_order = [glyph_name(codepoint) for codepoint in codepoints]
     glyphs = {glyph_name(codepoint): make_glyph(source[codepoint]) for codepoint in codepoints}
-    metrics = {name: (ADVANCE_WIDTH, 0) for name in glyph_order}
+    metrics = {
+        glyph_name(codepoint): (ADVANCE_WIDTH, left_side_bearing(source[codepoint]))
+        for codepoint in codepoints
+    }
     cmap = {codepoint: glyph_name(codepoint) for codepoint in codepoints if codepoint != 0}
 
     font_builder = FontBuilder(UNITS_PER_EM, isTTF=True)
@@ -225,11 +211,11 @@ def build_variant(
     )
     font_builder.setupNameTable(
         {
-            "familyName": family,
+            "familyName": FAMILY,
             "styleName": STYLE,
-            "uniqueFontIdentifier": f"{family} {VERSION}",
-            "fullName": f"{family} {STYLE}",
-            "psName": ps_name,
+            "uniqueFontIdentifier": f"{FAMILY} {VERSION}",
+            "fullName": f"{FAMILY} {STYLE}",
+            "psName": "SunGallant-Regular",
             "version": f"Version {VERSION}",
             "copyright": (
                 "Copyright 2026 theMackabu, sf.tools; "
@@ -237,7 +223,7 @@ def build_variant(
             ),
             "licenseDescription": "BSD 3-Clause License",
             "licenseInfoURL": "https://opensource.org/license/bsd-3-clause",
-            "description": description,
+            "description": "An independent outline revival of the Sun workstation console font.",
         }
     )
     font_builder.setupOS2(
@@ -264,33 +250,14 @@ def build_variant(
     font["OS/2"].fsType = 0
 
     DIST.mkdir(exist_ok=True)
-    ttf_path = DIST / f"{filename}.ttf"
-    woff2_path = DIST / f"{filename}.woff2"
+    ttf_path = DIST / "SunGallant-Regular.ttf"
+    woff2_path = DIST / "SunGallant-Regular.woff2"
     font.save(ttf_path, reorderTables=False)
 
     web_font = TTFont(ttf_path, recalcTimestamp=False)
     web_font.flavor = "woff2"
     web_font.save(woff2_path, reorderTables=False)
     return ttf_path, woff2_path
-
-
-def build() -> tuple[Path, ...]:
-    revival = parse_source(SOURCE)
-    revival_paths = build_variant(
-        revival,
-        family=FAMILY,
-        ps_name="SunGallant-Regular",
-        filename="SunGallant-Regular",
-        description="An independent outline revival of the Sun workstation console font.",
-    )
-    classic_paths = build_variant(
-        classic_source(revival),
-        family=CLASSIC_FAMILY,
-        ps_name="SunGallantClassic-Regular",
-        filename="SunGallantClassic-Regular",
-        description="A faithful outline conversion of the Gallant console bitmap.",
-    )
-    return (*revival_paths, *classic_paths)
 
 
 if __name__ == "__main__":

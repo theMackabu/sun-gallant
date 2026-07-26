@@ -1,5 +1,12 @@
 # Fontlog
 
+## 0.1.2
+
+- Corrected every glyph's TrueType left side bearing to match its actual
+  horizontal inset while preserving the 12-pixel monospace advance.
+- Restored the pinned original Gallant glyph shapes and retired the separate
+  `Sun Gallant Classic` family.
+
 ## 0.1.1
 
 - Added a separate `Sun Gallant Classic` family that preserves the pinned

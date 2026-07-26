@@ -34,8 +34,6 @@ jobs:
           path: |
             dist/SunGallant-Regular.ttf
             dist/SunGallant-Regular.woff2
-            dist/SunGallantClassic-Regular.ttf
-            dist/SunGallantClassic-Regular.woff2
             LICENSE
             THIRD_PARTY_NOTICES.md
 

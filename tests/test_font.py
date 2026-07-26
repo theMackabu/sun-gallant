@@ -18,7 +18,7 @@ GLYPH_SOURCE = ROOT / "sources" / "glyphs.txt"
 
 def source_rows(codepoint: str) -> list[str]:
     block = GLYPH_SOURCE.read_text(encoding="utf-8").split(f"U+{codepoint} ", 1)[1]
-    return block.split("\n\n", 1)[0].splitlines()[1:]
+    return block.splitlines()[1:23]
 
 
 class FontTests(unittest.TestCase):
@@ -49,8 +49,8 @@ class FontTests(unittest.TestCase):
         font = TTFont(TTF)
         version = font["name"].getName(5, 3, 1)
         self.assertIsNotNone(version)
-        self.assertEqual(version.toUnicode(), "Version 0.1.1")
-        self.assertAlmostEqual(font["head"].fontRevision, 0.101, places=3)
+        self.assertEqual(version.toUnicode(), "Version 0.1.2")
+        self.assertAlmostEqual(font["head"].fontRevision, 0.102, places=3)
 
     def test_character_coverage(self) -> None:
         font = TTFont(TTF)
@@ -93,41 +93,51 @@ class FontTests(unittest.TestCase):
         self.assertGreater(glyphs["A"].numberOfContours, 0)
         self.assertEqual(glyphs["space"].numberOfContours, 0)
 
-    def test_narrow_glyphs_are_optically_balanced(self) -> None:
+    def test_left_side_bearings_match_bitmap_insets(self) -> None:
         font = TTFont(TTF)
         glyphs = font["glyf"]
-        for name in ("I", "i", "l", "f"):
-            with self.subTest(glyph=name):
-                width = glyphs[name].xMax - glyphs[name].xMin
-                self.assertGreaterEqual(width, 8 * 64)
-                self.assertEqual(font["hmtx"][name][0], 12 * 64)
+        for name in font.getGlyphOrder():
+            glyph = glyphs[name]
+            if glyph.numberOfContours:
+                with self.subTest(glyph=name):
+                    self.assertEqual(font["hmtx"][name][1], glyph.xMin)
+        self.assertEqual(font["hmtx"]["i"][1], 3 * 64)
+        self.assertEqual(font["hmtx"]["l"][1], 3 * 64)
+
+    def test_original_glyphs_match_vendored_source(self) -> None:
+        from scripts.import_netbsd import parse_header
+
+        vendored = parse_header(ROOT / "sources" / "netbsd-gallant12x22.h")
+        codepoints = {0, *range(0x20, 0x7F), *range(0xA0, 0x100)}
+        for codepoint in codepoints:
+            expected = [
+                "".join(
+                    "#" if (packed_row >> 4) & (1 << (12 - column - 1)) else "."
+                    for column in range(12)
+                )
+                for packed_row in vendored[codepoint]
+            ]
+            with self.subTest(codepoint=f"U+{codepoint:04X}"):
+                self.assertEqual(source_rows(f"{codepoint:04X}"), expected)
+
+    def test_font_remains_strictly_monospaced(self) -> None:
+        font = TTFont(TTF)
+        self.assertEqual(
+            {advance for advance, _ in font["hmtx"].metrics.values()},
+            {12 * 64},
+        )
         self.assertNotIn("kern", font)
         self.assertNotIn("GPOS", font)
 
-    def test_lowercase_serifs_remain_distinct_from_capital_i(self) -> None:
+    def test_original_narrow_serifs_are_preserved(self) -> None:
         capital_i = source_rows("0049")
         lowercase_i = source_rows("0069")
         lowercase_l = source_rows("006C")
-        self.assertEqual(capital_i[3], "..########..")
+        self.assertEqual(capital_i[3], "...######...")
         self.assertEqual(lowercase_i[7], "...####.....")
         self.assertEqual(lowercase_l[2], "...####.....")
-        self.assertEqual(lowercase_i[16], "..########..")
-        self.assertEqual(lowercase_l[16], "..########..")
-
-    def test_optical_capital_serifs_do_not_touch_adjacent_capitals(self) -> None:
-        capitals = {
-            chr(codepoint): source_rows(f"{codepoint:04X}")
-            for codepoint in range(ord("A"), ord("Z") + 1)
-        }
-        for left_name, left_rows in capitals.items():
-            for right_name, right_rows in capitals.items():
-                touching_rows = [
-                    row
-                    for row in range(22)
-                    if left_rows[row][-1] == "#" and right_rows[row][0] == "#"
-                ]
-                with self.subTest(pair=left_name + right_name):
-                    self.assertEqual(touching_rows, [])
+        self.assertEqual(lowercase_i[16], "...######...")
+        self.assertEqual(lowercase_l[16], "...######...")
 
     def test_structural_capital_edges_are_preserved(self) -> None:
         capital_g = source_rows("0047")
