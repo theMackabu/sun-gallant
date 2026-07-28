@@ -1,5 +1,10 @@
 # Fontlog
 
+## 0.1.4
+
+- Restored the original's swash-tailed `Q` and double-storey `g` as geometric redrawings.
+- Rebuilt `y` so its descender flows continuously out of the right diagonal instead of overlapping it.
+
 ## 0.1.3
 
 - Added `Sun Gallant Vector`, a from-scratch geometric monospace redraw with smooth quadratic curves, flat terminals, and the same 12-unit advance and character coverage as the original face.

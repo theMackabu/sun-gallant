@@ -22,8 +22,8 @@ DIST = ROOT / "dist"
 FAMILY = "Sun Gallant"
 VECTOR_FAMILY = "Sun Gallant Vector"
 STYLE = "Regular"
-VERSION = "0.1.3"
-FONT_REVISION = 0.103
+VERSION = "0.1.4"
+FONT_REVISION = 0.104
 
 WIDTH = 12
 HEIGHT = 22

@@ -38,7 +38,7 @@ class FontTests(unittest.TestCase):
 
     def test_vector_source_is_pinned(self) -> None:
         digest = hashlib.sha256(VECTOR_SOURCE.read_bytes()).hexdigest()
-        self.assertEqual(digest, "5ca4006f707ad33fdfffe99d075f66deb5ce723b64a14b065ccbe794d24275c3")
+        self.assertEqual(digest, "254c1d4bf1f8873571b5809a774d8f85130318500fd3d17ea116a825af7dd9d4")
 
     def test_every_visible_glyph_has_a_designed_vector_outline(self) -> None:
         from scripts.trace_vector_source import modern_elements, parse_source
@@ -74,15 +74,15 @@ class FontTests(unittest.TestCase):
         font = TTFont(TTF)
         version = font["name"].getName(5, 3, 1)
         self.assertIsNotNone(version)
-        self.assertEqual(version.toUnicode(), "Version 0.1.3")
-        self.assertAlmostEqual(font["head"].fontRevision, 0.103, places=3)
+        self.assertEqual(version.toUnicode(), "Version 0.1.4")
+        self.assertAlmostEqual(font["head"].fontRevision, 0.104, places=3)
 
     def test_vector_metadata(self) -> None:
         font = TTFont(VECTOR_TTF)
         self.assertEqual(font["name"].getName(1, 3, 1).toUnicode(), "Sun Gallant Vector")
         self.assertEqual(font["name"].getName(4, 3, 1).toUnicode(), "Sun Gallant Vector Regular")
-        self.assertEqual(font["name"].getName(5, 3, 1).toUnicode(), "Version 0.1.3")
-        self.assertAlmostEqual(font["head"].fontRevision, 0.103, places=3)
+        self.assertEqual(font["name"].getName(5, 3, 1).toUnicode(), "Version 0.1.4")
+        self.assertAlmostEqual(font["head"].fontRevision, 0.104, places=3)
 
     def test_character_coverage(self) -> None:
         font = TTFont(TTF)
